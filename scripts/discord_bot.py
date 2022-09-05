@@ -554,7 +554,7 @@ Flags available:
             return
         normalized_prompt = self.normalize_prompt(opt)
         filepath = self.write_jpg(image, seed)
-        msg = f"{self.style_text(opt)}`{normalized_prompt} -S{seed}`"
+        msg = f"{self.style_text(opt)}`{normalized_prompt}`"
         loop.create_task(
             discord_channel.send(
                 msg,
@@ -603,6 +603,8 @@ Flags available:
             switches.append(f'-G{opt.gfpgan_strength}')
         if opt.upscale:
             switches.append(f'-U {" ".join([str(u) for u in opt.upscale])}')
+        if opt.seed:
+            switches.append(f'-S{opt.seed}')
         return ' '.join(switches)
 
 
