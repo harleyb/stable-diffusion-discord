@@ -126,20 +126,29 @@ class DiscordBot(object):
                     pass
                 else:
                     opt.steps = 128
-                cmd = [f'{prompt} -S{opt.seed} -m{opt.sampler_name} -s{opt.steps} -C{opt.cfg_scale} -G0.8 -U 4 0.7']
+                opt.gfpgan_strength = 0.8
+                opt.upscale = [4, 0.7]
+                cmd = [self.normalize_prompt(opt)]
                 msg = 'generating (~1min) detailed'
             elif inmoji == '🤩':  # make make upscaled image with dpm_2_a sampler
-                cmd = [f'{prompt} -S{opt.seed} -mk_dpm_2_a -s128 -C{opt.cfg_scale}  -G0.8 -U 4 0.7']
+                opt.sampler_name = 'k_dpm_2_a'
+                opt.steps = 128
+                opt.gfpgan_strength = 0.8
+                opt.upscale = [4, 0.7]
+                cmd = [self.normalize_prompt(opt)]
                 msg = 'generating (~1min) Style 3️⃣ detailed'
             elif inmoji == '🤓' or inmoji == '😎':  # CFG spread
                 cmd = list()
                 for y in [2, 4.75, 12, 18]:
-                    cmd.append(f'{prompt} -S{opt.seed} -m{opt.sampler_name} -s{opt.steps} -C{y}')
+                    opt.cfg_scale = y
+                    cmd.append(self.normalize_prompt(opt))
                 msg = 'generating a strictness spread of'
             elif inmoji == '😱' or inmoji == '😨':  # get a k_euler_a spread
                 cmd = list()
+                opt.sampler_name = 'k_euler_a'
                 for y in [12, 20, 28, 36, 48]:
-                    cmd.append(f'{prompt} -S{opt.seed} -mk_euler_a -s{y} -C{opt.cfg_scale}')
+                    opt.steps = y
+                    cmd.append(self.normalize_prompt(opt))
                 msg = 'generating a Style 2️⃣ step spread of'
             else:
                 return
@@ -245,7 +254,7 @@ class DiscordBot(object):
 \t`!a spider wearing a hat` generates six images total: three different seeds, each generated with styles 1️⃣ and 2️⃣.
 Use a `$` or a `%` instead of the `!` to generate portrait or landscape aspect ratios! (Note that seeds will generate completely differently in different ratios)
 \t`$a beautiful portrait of princess peach`
-\t`%a stunning panorama of the mushroom kingdom` 
+\t`%a stunning panorama of the mushroom kingdom`
 Use an emoji react to explore this prompt further! These will use the same seed value, which tends to keep the image composition similar.
 \t😍: generate a more detailed version with the same seed, style and strictness (and steps if style 2️⃣) (~1min)
 \t🤩: generate a style 3️⃣ detailed version with the same seed and strictness (~1min)
