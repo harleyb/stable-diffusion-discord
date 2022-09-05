@@ -469,8 +469,10 @@ Flags available:
         try:
             opt = self.prompt_parser.parse_args(switches)
             # manually set all the argparse parameters the library methods expect
-            opt.width = 512
-            opt.height = 512
+            if opt.width is None:
+                opt.width = 512
+            if opt.height is None:
+                opt.height = 512
             opt.init_img = None
             opt.skip_normalize = False
             opt.save_original = False
@@ -573,14 +575,16 @@ Flags available:
         switches = list()
         switches.append(f'"{opt.prompt}"')
         switches.append(f'-s{opt.steps or self.t2i.steps}')
-        # switches.append(f'-W{opt.width or self.t2i.width}')
-        # switches.append(f'-H{opt.height or self.t2i.height}')
+        if opt.width != 512:
+            switches.append(f'-W{opt.width or self.t2i.width}')
+        if opt.height != 512:
+            switches.append(f'-H{opt.height or self.t2i.height}')
         switches.append(f'-C{round(opt.cfg_scale or self.t2i.cfg_scale, 2)}')
         switches.append(f'-m{opt.sampler_name or self.t2i.sampler_name}')
-        # if opt.gfpgan_strength:
-        #     switches.append(f'-G{opt.gfpgan_strength}')
-        # if opt.upscale:
-        #     switches.append(f'-U {" ".join([str(u) for u in opt.upscale])}')
+        if opt.gfpgan_strength:
+            switches.append(f'-G{opt.gfpgan_strength}')
+        if opt.upscale:
+            switches.append(f'-U {" ".join([str(u) for u in opt.upscale])}')
         return ' '.join(switches)
 
 
