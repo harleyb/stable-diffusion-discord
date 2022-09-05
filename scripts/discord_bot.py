@@ -171,9 +171,13 @@ class DiscordBot(object):
                 do_more = False
                 try:
                     split = [x for x in content.split(' ') if x]
-                    do_more = len(split) == 2 and split[0] in ['more']
+                    if len(split) > 1:
+                        more_idx = int(split[1])
+                    elif len(split) > 2:
+                        raise Exception
+                    do_more = split[0] in ['more']
                 except Exception as e:
-                    print(e)
+                    pass
                 if do_history:
                     history_content = "Regenerate a previous prompt with `!more <x>` where `<x>` is the number:\n" + \
                                       "\n".join([f"\t**{idx}**: `{opt.prompt}`"
@@ -185,9 +189,7 @@ class DiscordBot(object):
                         await message.channel.send(history_content)
                     return
                 elif do_more:
-                    split = [x for x in content.split(' ') if x]
-                    more_idx = int(split[1])
-                    if len(self.opt_history) < more_idx:
+                    if more_idx > len(self.opt_history) or more_idx < 1:
                         await message.channel.send(f"couldn't generate, only have {len(self.opt_history)} history entries")
                         return
                     opt = copy.deepcopy(self.opt_history[-more_idx])
