@@ -33,6 +33,8 @@ logger.addHandler(ch)
 DEFAULT_ITERATIONS = 3
 DISCORD_MESSAGE_LIMIT = 2000
 HISTORY_COUNT = 10
+NORM_DIM = 512
+BIG_DIM = 768
 
 SAMPLER_CHOICES = [
     'ddim',
@@ -66,8 +68,6 @@ class DiscordBot(object):
         self.argvopt = self.get_argv_parser().parse_args()
         self.t2i = self.init_model()
         self.prompt_parser = self.get_prompt_parser()
-        self.last_seeds = list()
-        # self.outputs = dict()
         self.opt_history = list()
         self.threadlock = threading.BoundedSemaphore(value=1)
 
@@ -164,7 +164,7 @@ class DiscordBot(object):
                 await self.send_help_text(message.channel)
                 return
 
-            if message.content[0] == '!':
+            if message.content[0] in ['!', '$', '%']:
                 content = message.content[1:].lower().strip()
                 do_history = content in ['history']
                 do_help = content in ['help']
@@ -181,8 +181,11 @@ class DiscordBot(object):
                     do_more = split[0] in ['more']
                 except Exception as e:
                     pass
-                if do_history:
-                    history_content = "Regenerate a previous prompt with `!more <x>` where `<x>` is the number:\n" + \
+                if do_help:
+                    await self.send_help_text(message.channel, extended=False)
+                    return
+                elif do_history:
+                    history_content = "Regenerate a previous prompt with `!more <x>` (or `$` or `%` for portrait or landscape) where `<x>` is the number:\n" + \
                                       "\n".join([f"\t**{idx}**: `{opt.prompt}`"
                                                  for idx, opt in enumerate(self.opt_history[-1:-HISTORY_COUNT:-1], 1)])
                     if len(history_content) > DISCORD_MESSAGE_LIMIT:
@@ -193,12 +196,11 @@ class DiscordBot(object):
                     return
                 elif do_more:
                     if more_idx > len(self.opt_history) or more_idx < 1:
-                        await message.channel.send(f"couldn't generate, only have {len(self.opt_history)} history entries")
+                        await message.channel.send(
+                            f"couldn't generate, only have {len(self.opt_history)} history entries")
                         return
                     opt = copy.deepcopy(self.opt_history[-more_idx])
                     opt.seed = None
-                elif do_help:
-                    await self.send_help_text(message.channel, extended=False)
                 else:
                     try:
                         opt = self.parse_command(message.content[1:])
@@ -210,6 +212,13 @@ class DiscordBot(object):
                         logger.error(f"couldn't evaluate {message}", exc_info=e)
                         await message.channel.send(f"couldn't evaluate {message.content[1:]}, DM me to get help")
                         return
+
+                if message.content[0] == '$':
+                    opt.height = BIG_DIM
+                    opt.width = NORM_DIM
+                elif message.content[0] == '%':
+                    opt.height = NORM_DIM
+                    opt.width = BIG_DIM
                 await message.channel.send(f"generating {opt.prompt}...")
                 if opt.sampler_name is None and opt.iterations is None and opt.seed is None:
                     opts = list()
@@ -234,6 +243,9 @@ class DiscordBot(object):
     async def send_help_text(self, channel, extended=True):
         msg = f'''Send a message to any channel I'm in starting with an exclamation mark and I'll make images from the message body (the "prompt")! For example:
 \t`!a spider wearing a hat` generates six images total: three different seeds, each generated with styles 1️⃣ and 2️⃣.
+Use a `$` or a `%` instead of the `!` to generate portrait or landscape aspect ratios! (Note that seeds will generate completely differently in different ratios)
+\t`$a beautiful portrait of princess peach`
+\t`%a stunning panorama of the mushroom kingdom` 
 Use an emoji react to explore this prompt further! These will use the same seed value, which tends to keep the image composition similar.
 \t😍: generate a more detailed version with the same seed, style and strictness (and steps if style 2️⃣) (~1min)
 \t🤩: generate a style 3️⃣ detailed version with the same seed and strictness (~1min)
@@ -479,9 +491,9 @@ Flags available:
             opt = self.prompt_parser.parse_args(switches)
             # manually set all the argparse parameters the library methods expect
             if opt.width is None:
-                opt.width = 512
+                opt.width = NORM_DIM
             if opt.height is None:
-                opt.height = 512
+                opt.height = NORM_DIM
             opt.init_img = None
             opt.skip_normalize = False
             opt.save_original = False
@@ -491,14 +503,6 @@ Flags available:
             raise ValueError
         if len(opt.prompt) == 0:
             raise ValueError
-
-        if opt.seed is not None and opt.seed < 0:  # retrieve previous value!
-            try:
-                opt.seed = self.last_seeds[opt.seed]
-                logger.info(f'reusing previous seed {opt.seed}')
-            except IndexError:
-                logger.info(f'No previous seed at position {opt.seed} found')
-                opt.seed = None
 
         if opt.upscale is not None and opt.upscale[0] < 0:
             opt.upscale = None
@@ -540,7 +544,6 @@ Flags available:
         if (opt.upscale is not None or opt.gfpgan_strength > 0) and upscaled is False:
             return
         try:
-            self.last_seeds.append(seed)
             normalized_prompt = self.normalize_prompt(opt)
             filepath = self.write_jpg(image, seed)
             msg = f"{self.style_text(opt)}`{normalized_prompt} -S{seed}`"
@@ -584,9 +587,9 @@ Flags available:
         switches = list()
         switches.append(f'"{opt.prompt}"')
         switches.append(f'-s{opt.steps or self.t2i.steps}')
-        if opt.width != 512:
+        if opt.width != NORM_DIM:
             switches.append(f'-W{opt.width or self.t2i.width}')
-        if opt.height != 512:
+        if opt.height != NORM_DIM:
             switches.append(f'-H{opt.height or self.t2i.height}')
         switches.append(f'-C{round(opt.cfg_scale or self.t2i.cfg_scale, 2)}')
         switches.append(f'-m{opt.sampler_name or self.t2i.sampler_name}')
