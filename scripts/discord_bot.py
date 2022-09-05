@@ -169,12 +169,15 @@ class DiscordBot(object):
                 do_history = content in ['history']
                 do_help = content in ['help']
                 do_more = False
+                more_idx = None
                 try:
                     split = [x for x in content.split(' ') if x]
                     if len(split) > 1:
                         more_idx = int(split[1])
                     elif len(split) > 2:
                         raise Exception
+                    else:
+                        more_idx = 1
                     do_more = split[0] in ['more']
                 except Exception as e:
                     pass
