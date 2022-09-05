@@ -69,7 +69,7 @@ class DiscordBot(object):
         self.t2i = self.init_model()
         self.prompt_parser = self.get_prompt_parser()
         self.opt_history = list()
-        self.threadlock = threading.BoundedSemaphore(value=1)
+        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
         logging.basicConfig(
             handlers=[
@@ -536,35 +536,32 @@ Flags available:
             iterations = opt.iterations
             opt.iterations = 1
             callback = functools.partial(self.handle_generator_callbacks, opt=opt, discord_channel=discord_channel,
-                                         loop=loop, actual_iterations=iterations)
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                for _ in range(iterations):
-                    while not self.threadlock.acquire(blocking=False):
-                        await asyncio.sleep(0.1)
-                    await loop.run_in_executor(pool,
-                                               functools.partial(self.t2i.prompt2image, image_callback=callback,
-                                                                 **vars(opt)))
-                    await asyncio.sleep(0)
+                                         loop=loop)
+            for _ in range(iterations):
+                await loop.run_in_executor(
+                    self.threadpool,
+                    functools.partial(
+                        self.t2i.prompt2image,
+                        image_callback=callback,
+                        **vars(opt)
+                    )
+                )
         except Exception as e:
             logger.error("hit a problem generating", exc_info=e)
 
-    def handle_generator_callbacks(self, image, seed, upscaled=False, loop=None, opt=None, discord_channel=None,
-                                   actual_iterations=1):
+    def handle_generator_callbacks(self, image, seed, upscaled=False, loop=None, opt=None, discord_channel=None):
         if (opt.upscale is not None or opt.gfpgan_strength > 0) and upscaled is False:
             return
-        try:
-            normalized_prompt = self.normalize_prompt(opt)
-            filepath = self.write_jpg(image, seed)
-            msg = f"{self.style_text(opt)}`{normalized_prompt} -S{seed}`"
-            loop.create_task(
-                discord_channel.send(
-                    msg,
-                    file=discord.File(filepath),
-                )
+        normalized_prompt = self.normalize_prompt(opt)
+        filepath = self.write_jpg(image, seed)
+        msg = f"{self.style_text(opt)}`{normalized_prompt} -S{seed}`"
+        loop.create_task(
+            discord_channel.send(
+                msg,
+                file=discord.File(filepath),
             )
-            logger.info(f"generated: {filepath} {opt}")
-        finally:
-            self.threadlock.release()
+        )
+        logger.info(f"generated: {filepath} {opt}")
 
     def write_jpg(self, image, seed):
         path = os.path.join(self.argvopt.outdir, f'{time.time():.2f}.{seed}.jpg')
