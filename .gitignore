@@ -193,3 +193,5 @@ checkpoints
 .vscode/
 gfpgan/
 models/ldm/stable-diffusion-v1/model.sha256
+
+discord_log.txt

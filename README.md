@@ -1,3 +1,22 @@
+# Stable Diffusion Discord Bot
+
+This is a fork of lstein/stable-diffusion, which is a fork of CompVis/stable-diffusion, the wonderful open source
+text-to-image generator.
+
+Please follow the original instructions below (`Stable Diffusion Dream Script`) for initial setup, then come back here for followup config.
+
+1. Make a Discord bot account like in https://realpython.com/how-to-make-a-discord-bot-python/
+2. Grab your bot token and your guild ID
+3. Create a `.env` file like:
+    ```
+   # .env
+    DISCORD_TOKEN={your-bot-token}
+    DISCORD_GUILD={your-guild-id}
+    ```
+4. Run with `pytohn scripts/discord_bot.py`
+5. On Windows, modify `discord_bot.bat` and `discord_bot_minimized.bat` to match your configuration and use it instead, if you like
+
+
 <div align="center">
 
 # Stable Diffusion Dream Script
