@@ -391,6 +391,12 @@ Flags available:
             metavar='SAMPLER_NAME',
             help='Change to another supported sampler',
         )
+        parser.add_argument(
+            '-W', '--width', type=int, help='Image width, multiple of 64'
+        )
+        parser.add_argument(
+            '-H', '--height', type=int, help='Image height, multiple of 64'
+        )
         return parser
 
     def init_model(self):
