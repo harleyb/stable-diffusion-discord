@@ -128,18 +128,21 @@ class DiscordBot(object):
                 if opt.sampler_name == 'k_euler_a':
                     pass
                 else:
-                    opt.steps = 128
+                    opt.steps = 64
                 opt.gfpgan_strength = 0.8
                 opt.upscale = [4, 0.7]
                 cmd = [self.normalize_prompt(opt)]
                 msg = 'generating (~1min) detailed'
             elif inmoji == '🤩':  # make make upscaled image with dpm_2_a sampler
+                cmd = list()
                 opt.sampler_name = 'k_dpm_2_a'
                 opt.steps = 128
                 opt.gfpgan_strength = 0.8
                 opt.upscale = [4, 0.7]
-                cmd = [self.normalize_prompt(opt)]
-                msg = 'generating (~1min) Style 3️⃣ detailed'
+                for y in [32, 48, 64]:
+                    opt.steps = y
+                    cmd.append(self.normalize_prompt(opt))
+                msg = 'generating (~1min) a spread of Style 3️⃣ detailed'
             elif inmoji == '🤓' or inmoji == '😎':  # CFG spread
                 cmd = list()
                 for y in [2, 4.75, 12, 18]:
@@ -260,7 +263,7 @@ Use a `$` or a `%` instead of the `!` to generate portrait or landscape aspect r
 \t`%a stunning panorama of the mushroom kingdom`
 Use an emoji react to explore this prompt further! These will use the same seed value, which tends to keep the image composition similar.
 \t😍: generate a more detailed version with the same seed, style and strictness (and steps if style 2️⃣) (~1min)
-\t🤩: generate a style 3️⃣ detailed version with the same seed and strictness (~1min)
+\t🤩: generate a spread of style 3️⃣ detailed images with the same seed and strictness (~1min)
 \t🤓 or 😎: generate a spread using this seed and style, with the bot varying how closely it follows the prompt
 \t😱 or 😨: generate a spread using this seed in style 2️⃣, with the bot varying the number of steps
 \t⭐️: add to the #hall-of-fame channel
