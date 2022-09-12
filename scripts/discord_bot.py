@@ -9,12 +9,15 @@ import os
 import sys
 import time
 import copy
-import threading
 from omegaconf import OmegaConf
+import numpy as np
+import random
 import logging
 import logging.handlers
 import discord
 from dotenv import load_dotenv
+
+import ldm.generate
 
 debugging = False
 
@@ -232,7 +235,7 @@ class DiscordBot(object):
                 if opt.sampler_name is None and opt.iterations is None and opt.seed is None:
                     opts = list()
                     for _ in range(DEFAULT_ITERATIONS):
-                        seed = self.t2i._new_seed()
+                        seed = random.randrange(0, np.iinfo(np.uint32).max)
                         for y in ['ddim', 'k_euler_a']:
                             opt2 = copy.deepcopy(opt)
                             opt2.sampler_name = y
@@ -283,13 +286,6 @@ Flags available:
             description="Parse script's command line args",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument(
-            "--laion400m",
-            "--latent_diffusion",
-            "-l",
-            dest='laion400m',
-            action='store_true',
-            help="fallback to the latent diffusion (laion400m) weights and config")
-        parser.add_argument(
             '-F', '--full_precision',
             dest='full_precision',
             action='store_true',
@@ -320,11 +316,6 @@ Flags available:
             type=str,
             default="cuda",
             help="device to run stable diffusion on. defaults to cuda `torch.cuda.current_device()` if available")
-        parser.add_argument(
-            '--weights',
-            default='model',
-            help='Indicates the Stable Diffusion model to use.',
-        )
         parser.add_argument(
             '--model',
             default='stable-diffusion-1.4',
@@ -357,7 +348,7 @@ Flags available:
         parser.add_argument(
             '--gfpgan_dir',
             type=str,
-            default='../GFPGAN',
+            default='./src/gfpgan',
             help='indicates the directory containing the GFPGAN code.',
         )
         return parser
@@ -439,7 +430,7 @@ Flags available:
         logger.info("* Initializing, be patient...")
         sys.path.append('.')
         from pytorch_lightning import logging as pytorch_logging
-        from ldm.simplet2i import T2I
+        from ldm.generate import Generate
         # these two lines prevent a horrible warning message from appearing
         # when the frozen CLIP tokenizer is imported
         import transformers
@@ -449,16 +440,16 @@ Flags available:
         # defaults passed on the command line.
         # additional parameters will be added (or overriden) during
         # the user input loop
-        t2i = T2I(width=width,
-                  height=height,
-                  sampler_name=self.argvopt.sampler_name,
-                  weights=weights,
-                  full_precision=self.argvopt.full_precision,
-                  config=config,
-                  latent_diffusion_weights=self.argvopt.laion400m,  # this is solely for recreating the prompt
-                  embedding_path=self.argvopt.embedding_path,
-                  device_type=self.argvopt.device
-                  )
+        t2i = Generate(width=width,
+                       height=height,
+                       sampler_name=self.argvopt.sampler_name,
+                       weights=weights,
+                       full_precision=self.argvopt.full_precision,
+                       config=config,
+                       embedding_path=self.argvopt.embedding_path,
+                       device_type=self.argvopt.device,
+                       ignore_ctrl_c=False
+                       )
 
         # make sure the output directory exists
         if not os.path.exists(self.argvopt.outdir):
