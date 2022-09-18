@@ -17,8 +17,6 @@ import logging.handlers
 import discord
 from dotenv import load_dotenv
 
-import ldm.generate
-
 debugging = False
 
 logger = logging.getLogger('SDDisc')
@@ -247,6 +245,8 @@ class DiscordBot(object):
                     for opt in opts:
                         await self.generator(opt, discord_channel=message.channel)
                 else:
+                    if opt.seed is None:
+                        opt.seed = random.randrange(0, np.iinfo(np.uint32).max)
                     await self.generator(opt, discord_channel=message.channel)
 
     def run(self):
@@ -418,6 +418,7 @@ Flags available:
         parser.add_argument(
             '-l'
             '--seamless',
+            dest='seamless',
             action='store_true',
             help='Change the model to seamless tiling (circular) mode',
         )
@@ -449,15 +450,11 @@ Flags available:
         # defaults passed on the command line.
         # additional parameters will be added (or overriden) during
         # the user input loop
-        t2i = Generate(width=width,
-                       height=height,
-                       sampler_name=self.argvopt.sampler_name,
+        t2i = Generate(sampler_name=self.argvopt.sampler_name,
                        weights=weights,
                        full_precision=self.argvopt.full_precision,
                        config=config,
                        embedding_path=self.argvopt.embedding_path,
-                       device_type=self.argvopt.device,
-                       ignore_ctrl_c=False
                        )
 
         # make sure the output directory exists
@@ -603,10 +600,10 @@ Flags available:
             switches.append(f'-G{opt.gfpgan_strength}')
         if opt.upscale:
             switches.append(f'-U {" ".join([str(u) for u in opt.upscale])}')
-        if opt.seed:
-            switches.append(f'-S{opt.seed}')
         if opt.seamless:
             switches.append(f'-l')
+        if opt.seed:
+            switches.append(f'-S{opt.seed}')
         return ' '.join(switches)
 
 
