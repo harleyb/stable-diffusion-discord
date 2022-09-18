@@ -415,6 +415,12 @@ Flags available:
         parser.add_argument(
             '-H', '--height', type=int, help='Image height, multiple of 64'
         )
+        parser.add_argument(
+            '-l'
+            '--seamless',
+            action='store_true',
+            help='Change the model to seamless tiling (circular) mode',
+        )
         return parser
 
     def init_model(self):
@@ -599,6 +605,8 @@ Flags available:
             switches.append(f'-U {" ".join([str(u) for u in opt.upscale])}')
         if opt.seed:
             switches.append(f'-S{opt.seed}')
+        if opt.seamless:
+            switches.append(f'-l')
         return ' '.join(switches)
 
 
