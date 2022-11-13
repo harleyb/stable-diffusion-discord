@@ -297,8 +297,14 @@ Send `!history` to get the last {HISTORY_COUNT} prompts I've generated.
 Flags available:
 '''
             await channel.send(msg)
-            msg = str(self.prompt_parser.format_help().split("optional arguments:")[1])
-            await channel.send(msg)
+            msgs = str(self.prompt_parser.format_help().split('options:')[1]).split('\n')
+            outmsg = ''
+            for msg in msgs:
+                if len(outmsg) + len(msg) > 2000:
+                    await channel.send(outmsg)
+                    outmsg = ''
+                outmsg = outmsg + msg + '\n'
+            await channel.send(outmsg)
 
     def get_argv_parser(self):
         parser = argparse.ArgumentParser(
