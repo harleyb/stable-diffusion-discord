@@ -306,6 +306,8 @@ Use an emoji react to explore this prompt further! These will use the same seed 
 
 Send `!history` to get the last {HISTORY_COUNT} prompts I've generated.
 
+Send an image to a channel and I'll tell you what I think the prompt would be!
+
 '''
         await channel.send(msg)
 
@@ -391,19 +393,6 @@ Flags available:
             action='store_true',
             help='Force free gpu memory before final decoding',
         )
-        # GFPGAN related args
-        # parser.add_argument(
-        #     '--gfpgan_bg_upsampler',
-        #     type=str,
-        #     default='realesrgan',
-        #     help='Background upsampler. Default: realesrgan. Options: realesrgan, none.',
-        # )
-        # parser.add_argument(
-        #     '--gfpgan_bg_tile',
-        #     type=int,
-        #     default=400,
-        #     help='Tile size for background sampler, 0 for no tile during testing. Default: 400.',
-        # )
         parser.add_argument(
             '--esrgan_bg_tile',
             type=int,
@@ -416,12 +405,6 @@ Flags available:
             default='./models/gfpgan/GFPGANv1.4.pth',
             help='indicates the path to the GFPGAN model',
         )
-        # parser.add_argument(
-        #     '--gfpgan_dir',
-        #     type=str,
-        #     default='./src/gfpgan',
-        #     help='indicates the directory containing the GFPGAN code.',
-        # )
         return parser
 
     def get_prompt_parser(self):
@@ -520,16 +503,6 @@ Flags available:
     def init_model(self):
         ''' Initialize command-line parsers and the diffusion model '''
 
-        # try:
-        #     models = OmegaConf.load(self.argvopt.config)
-        #     width = models[self.argvopt.model].width
-        #     height = models[self.argvopt.model].height
-        #     config = models[self.argvopt.model].config
-        #     weights = models[self.argvopt.model].weights
-        # except (FileNotFoundError, IOError, KeyError) as e:
-        #     print(f'{e}. Aborting.')
-        #     sys.exit(-1)
-
         logger.info("* Initializing, be patient...")
         sys.path.append('.')
         from pytorch_lightning import logging as pytorch_logging
@@ -541,16 +514,6 @@ Flags available:
 
         self.load_face_restoration()
 
-        # # creating a simple text2image object with a handful of
-        # # defaults passed on the command line.
-        # # additional parameters will be added (or overriden) during
-        # # the user input loop
-        # t2i = Generate(sampler_name=self.argvopt.sampler_name,
-        #                weights=weights,
-        #                full_precision=self.argvopt.full_precision,
-        #                config=config,
-        #                embedding_path=self.argvopt.embedding_path,
-        #                )
         try:
             t2i = Generate(
                 conf=self.argvopt.config,
@@ -593,7 +556,6 @@ Flags available:
             requested_model)
 
     def unload_everything(self):
-        # self.gfpgan, self.codeformer, self.esrgan = None, None, None
         self.t2i.model_cache.offload_model(self.t2i.model_name)
         gc.collect()
         torch.cuda.empty_cache()
@@ -607,7 +569,6 @@ Flags available:
             self.gfpgan, self.codeformer = restoration.load_face_restore_models(self.argvopt.gfpgan_model_path)
             self.esrgan = restoration.load_esrgan(self.argvopt.esrgan_bg_tile)
         except (ModuleNotFoundError, ImportError):
-            # print(traceback.format_exc(), file=sys.stderr)
             print('>> You may need to install the ESRGAN and/or GFPGAN modules')
 
     def parse_command(self, command):
