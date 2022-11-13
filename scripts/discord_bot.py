@@ -9,12 +9,16 @@ import os
 import sys
 import time
 import copy
+import traceback
+
 import numpy as np
 import random
 import logging
 import logging.handlers
+import tempfile
 import discord
 from dotenv import load_dotenv
+from PIL import Image
 
 debugging = False
 
@@ -75,6 +79,7 @@ class DiscordBot(object):
         self.argvopt = self.get_argv_parser().parse_args()
         self.gfpgan, self.codeformer, self.esrgan = None, None, None
         self.t2i = self.init_model()
+        self.interrogator = self.init_interrogator()
         self.prompt_parser = self.get_prompt_parser()
         self.opt_history = list()
         self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -192,7 +197,7 @@ class DiscordBot(object):
                 await self.send_help_text(message.channel)
                 return
 
-            if message.content[0] in ['!', '$', '%']:
+            if len(message.content) > 0 and message.content[0] in ['!', '$', '%']:
                 content = message.content[1:].lower().strip()
                 do_history = content in ['history']
                 do_help = content in ['help']
@@ -263,6 +268,10 @@ class DiscordBot(object):
                     if opt.seed is None:
                         opt.seed = random.randrange(0, np.iinfo(np.uint32).max)
                     await self.generator(opt, discord_channel=message.channel)
+            elif len(message.attachments) > 0:
+                for attachment in message.attachments:
+                    result = self.interrogate_attachment(attachment)
+                    await message.reply(f"`{attachment.filename}`: \"{result}\"")
 
     def run(self):
         self.client.run(self.TOKEN)
@@ -478,6 +487,21 @@ Flags available:
             help='Perlin noise scale (0.0 - 1.0) - add perlin noise to the initialization instead of the usual gaussian noise.',
         )
         return parser
+
+    def interrogate_attachment(self, attachment):
+        result = "error processing"
+        try:
+            with tempfile.TemporaryFile() as fp:
+                attachment.save(fp, use_cached=True)
+                result = self.interrogator.interrogate(Image.open(fp))
+        except:
+            traceback.print_exc()
+        return result
+
+    def init_interrogator(self):
+        from clip_interrogator import Interrogator, Config
+        ci = Interrogator(Config(clip_model_name="ViT-L/14"))
+        return ci
 
     def init_model(self):
         ''' Initialize command-line parsers and the diffusion model '''

@@ -220,10 +220,6 @@ models/gfpgan
 # ignore initfile
 invokeai.init
 
-# ignore environment.yml and requirements.txt
-# these are links to the real files in environments-and-requirements
-environment.yml
-requirements.txt
 
 # source installer files
 source_installer/*zip

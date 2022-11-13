@@ -33,6 +33,8 @@ transformers==4.21.*
 discord.py
 python-dotenv
 git+https://github.com/openai/CLIP.git@main#egg=clip
+git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip
+git+https://github.com/pharmapsychotic/clip-interrogator@main#egg=clip_interrogator
 git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k-diffusion
 git+https://github.com/invoke-ai/clipseg.git@relaxed-python-requirement#egg=clipseg
 git+https://github.com/invoke-ai/GFPGAN#egg=gfpgan
