@@ -130,7 +130,7 @@ class DiscordBot(object):
             if inmoji == '😍':  # make upscaled, up-stepped image
                 if opt.sampler_name == 'ddim':
                     opt.sampler_name = 'plms'
-                if opt.sampler_name == 'k_euler_a':
+                if opt.sampler_name in ['k_euler_a', 'k_dpm_2_a']:
                     pass
                 else:
                     opt.steps = 64
@@ -148,19 +148,21 @@ class DiscordBot(object):
                     opt.steps = y
                     cmd.append(self.normalize_prompt(opt))
                 msg = 'generating (~1min) a spread of Style 3️⃣ detailed'
-            elif inmoji == '🤓':  # CFG spread
+            elif inmoji == '🤓' or inmoji == '😎':  # CFG spread
                 cmd = list()
                 for y in [2, 4.75, 12, 18]:
                     opt.cfg_scale = y
                     cmd.append(self.normalize_prompt(opt))
                 msg = 'generating a strictness spread of'
-            elif inmoji == '😎':  # perlin spread
+            elif inmoji == '😨':  # perlin spread
+                if opt.sampler_name in ['ddim', 'k_lms']:
+                    opt.sampler_name = 'k_euler_a'
                 cmd = list()
                 for y in [0.2, 0.4, 0.6, 0.8, 1.0]:
                     opt.perlin = y
                     cmd.append(self.normalize_prompt(opt))
                 msg = 'generating a variation spread of'
-            elif inmoji == '😱' or inmoji == '😨':  # get a k_euler_a spread
+            elif inmoji == '😱':  # get a k_euler_a spread
                 cmd = list()
                 opt.sampler_name = 'k_euler_a'
                 for y in [12, 20, 28, 36, 48]:
@@ -277,9 +279,9 @@ Use a `$` or a `%` instead of the `!` to generate portrait or landscape aspect r
 Use an emoji react to explore this prompt further! These will use the same seed value, which tends to keep the image composition similar.
 \t😍: generate a more detailed version with the same seed, style and strictness (and steps if style 2️⃣) (~1min)
 \t🤩: generate a spread of style 3️⃣ detailed images with the same seed and strictness (~1min)
-\t🤓: generate a spread using this seed and style, with the bot varying how closely it follows the prompt
-\t😎: generate a spread using this seed and style, with variations in initial noise during generation
-\t😱 or 😨: generate a spread using this seed in style 2️⃣, with the bot varying the number of steps
+\t🤓 or 😎: generate a spread using this seed and style, with the bot varying how closely it follows the prompt
+\t😨: generate a spread using this seed with variations in initial noise during generation (style 1️⃣ will switch to 2️⃣) 
+\t😱: generate a spread using this seed in style 2️⃣, with the bot varying the number of steps
 \t⭐️: add to the #hall-of-fame channel
 **Check the #general pinned messages for tips on crafting prompts!** This is the most important part!
 
@@ -507,7 +509,7 @@ Flags available:
         #                )
         try:
             t2i = Generate(
-                conf=self.argvopt.conf,
+                conf=self.argvopt.config,
                 model=self.argvopt.model,
                 sampler_name=self.argvopt.sampler_name,
                 embedding_path=self.argvopt.embedding_path,
@@ -543,19 +545,10 @@ Flags available:
 
     def load_face_restoration(self):
         try:
-            if self.argvopt.restore or self.argvopt.esrgan:
-                from ldm.invoke.restoration import Restoration
-                restoration = Restoration()
-                if self.argvopt.restore:
-                    self.gfpgan, self.codeformer = restoration.load_face_restore_models(self.argvopt.gfpgan_model_path)
-                else:
-                    print('>> Face restoration disabled')
-                if self.argvopt.esrgan:
-                    self.esrgan = restoration.load_esrgan(self.argvopt.esrgan_bg_tile)
-                else:
-                    print('>> Upscaling disabled')
-            else:
-                print('>> Face restoration and upscaling disabled')
+            from ldm.invoke.restoration import Restoration
+            restoration = Restoration()
+            self.gfpgan, self.codeformer = restoration.load_face_restore_models(self.argvopt.gfpgan_model_path)
+            self.esrgan = restoration.load_esrgan(self.argvopt.esrgan_bg_tile)
         except (ModuleNotFoundError, ImportError):
             # print(traceback.format_exc(), file=sys.stderr)
             print('>> You may need to install the ESRGAN and/or GFPGAN modules')
@@ -635,7 +628,8 @@ Flags available:
         except Exception as e:
             logger.error("hit a problem generating", exc_info=e)
 
-    def handle_generator_callbacks(self, image, seed, upscaled=False, loop=None, opt=None, discord_channel=None):
+    def handle_generator_callbacks(self, image, seed, first_seed=None, use_prefix=None, upscaled=False, loop=None,
+                                   opt=None, discord_channel=None):
         if (opt.upscale is not None or opt.facetool_strength > 0) and upscaled is False:
             return
         normalized_prompt = self.normalize_prompt(opt)
