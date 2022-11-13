@@ -10,6 +10,7 @@ import sys
 import time
 import copy
 import traceback
+import gc
 
 import numpy as np
 import random
@@ -19,6 +20,7 @@ import tempfile
 import discord
 from dotenv import load_dotenv
 from PIL import Image
+import torch
 
 debugging = False
 
@@ -269,10 +271,17 @@ class DiscordBot(object):
                         opt.seed = random.randrange(0, np.iinfo(np.uint32).max)
                     await self.generator(opt, discord_channel=message.channel)
             elif len(message.attachments) > 0:
-                for attachment in message.attachments:
-                    await message.reply(f"Analyzing `{attachment.filename}`...")
-                    result = await self.interrogate_attachment(attachment)
-                    await message.reply(f"`{attachment.filename}`: \"{result}\"")
+                # self.t2i.model = None
+                # self.t2i.sampler = None
+                # self.t2i.generators = {}
+                try:
+                    self.unload_everything()
+                    for attachment in message.attachments:
+                        await message.reply(f"Analyzing `{attachment.filename}`...")
+                        result = await self.interrogate_attachment(attachment)
+                        await message.reply(f"`{attachment.filename}`: \"{result}\"")
+                finally:
+                    self.reload_everything()
 
     def run(self):
         self.client.run(self.TOKEN)
@@ -505,7 +514,7 @@ Flags available:
 
     def init_interrogator(self):
         from clip_interrogator import Interrogator, Config
-        ci = Interrogator(Config(clip_model_name="ViT-L/14"))
+        ci = Interrogator(Config(clip_model_name="ViT-B/16", device="cuda:0"))
         return ci
 
     def init_model(self):
@@ -578,6 +587,19 @@ Flags available:
 
         return t2i
 
+    def reload_everything(self):
+        requested_model = self.t2i.model_cache.models[self.t2i.model_name]['model']
+        self.t2i.model_cache.models[self.t2i.model_name]['model'] = self.t2i.model_cache._model_from_cpu(
+            requested_model)
+
+    def unload_everything(self):
+        # self.gfpgan, self.codeformer, self.esrgan = None, None, None
+        self.t2i.model_cache.offload_model(self.t2i.model_name)
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        print('>> Current VRAM usage: ', '%4.2fG' % (torch.cuda.memory_allocated() / 1e9))
+
     def load_face_restoration(self):
         try:
             from ldm.invoke.restoration import Restoration
@@ -637,6 +659,8 @@ Flags available:
 
     async def generator(self, opt, discord_channel):
         logger.info(f"requested generation: {opt}")
+        if self.esrgan is None:
+            self.load_face_restoration()
         try:
             loop = asyncio.get_running_loop()
             if opt.iterations is None:
