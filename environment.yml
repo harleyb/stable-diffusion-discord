@@ -11,6 +11,8 @@ dependencies:
   - torchaudio=0.12.1
   - pytorch=1.12.1
   - cudatoolkit=11.6
+  - pycocotools
+  - rust
   - pip:
     - albumentations==0.4.3
     - basicsr==1.4.1
@@ -42,7 +44,7 @@ dependencies:
     - discord.py==2.1.0
     - python-dotenv==0.21.0
     - git+https://github.com/openai/CLIP.git@main#egg=clip
-    - git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip
+    - git+https://github.com/harleyb/BLIP.git@main#egg=blip
     - git+https://github.com/pharmapsychotic/clip-interrogator@main#egg=clip_interrogator
     - git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k_diffusion
     - git+https://github.com/invoke-ai/clipseg.git@relaxed-python-requirement#egg=clipseg

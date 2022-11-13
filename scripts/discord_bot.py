@@ -270,7 +270,8 @@ class DiscordBot(object):
                     await self.generator(opt, discord_channel=message.channel)
             elif len(message.attachments) > 0:
                 for attachment in message.attachments:
-                    result = self.interrogate_attachment(attachment)
+                    await message.reply(f"Analyzing `{attachment.filename}`...")
+                    result = await self.interrogate_attachment(attachment)
                     await message.reply(f"`{attachment.filename}`: \"{result}\"")
 
     def run(self):
@@ -488,14 +489,18 @@ Flags available:
         )
         return parser
 
-    def interrogate_attachment(self, attachment):
+    async def interrogate_attachment(self, attachment):
         result = "error processing"
+        fp = tempfile.NamedTemporaryFile(delete=False)
+        fp.close()
         try:
-            with tempfile.TemporaryFile() as fp:
-                attachment.save(fp, use_cached=True)
-                result = self.interrogator.interrogate(Image.open(fp))
+            await attachment.save(fp.name, use_cached=True)
+            fp.close()
+            result = self.interrogator.interrogate(Image.open(fp.name))
         except:
             traceback.print_exc()
+        finally:
+            os.unlink(fp.name)
         return result
 
     def init_interrogator(self):
