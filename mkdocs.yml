@@ -1,10 +1,14 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
 # General
-site_name: Dream Script Docs
-site_url: https://lstein.github.io/stable-diffusion/
+site_name: Stable Diffusion Toolkit Docs
+site_url: https://invoke-ai.github.io/InvokeAI
+site_author: mauwii
+dev_addr: '127.0.0.1:8080'
 
 # Repository
-repo_name: lstein/stable-diffusion
-repo_url: https://github.com/lstein/stable-diffusion
+repo_name: 'invoke-ai/InvokeAI'
+repo_url: 'https://github.com/invoke-ai/InvokeAI'
 edit_uri: edit/main/docs/
 
 # Copyright
@@ -13,22 +17,29 @@ copyright: Copyright &copy; 2022 Lincoln D. Stein <lincoln.stein@gmail.com>
 # Configuration
 theme:
   name: material
-  features:
-    - toc.integrate
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/file-document-edit-outline
   palette:
     - media: '(prefers-color-scheme: light)'
-      primary: blue
       scheme: default
       toggle:
         icon: material/lightbulb
         name: Switch to dark mode
     - media: '(prefers-color-scheme: dark)'
-      primary: dark-blue
-      accent: white
       scheme: slate
+      primary: blue
       toggle:
         icon: material/lightbulb-outline
         name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.integrate
 
 # Extensions
 markdown_extensions:
@@ -37,7 +48,6 @@ markdown_extensions:
   - attr_list
   - def_list
   - footnotes
-  - meta
   - md_in_html
   - toc:
       permalink: '#'
@@ -56,8 +66,8 @@ markdown_extensions:
   - pymdownx.keys
   - pymdownx.magiclink:
       repo_url_shorthand: true
-      user: 'Mauwii'
-      repo: 'stable-diffusion'
+      user: 'invoke-ai'
+      repo: 'InvokeAI'
   - pymdownx.mark
   - pymdownx.smartsymbols
   - pymdownx.superfences:
@@ -75,4 +85,5 @@ markdown_extensions:
 
 plugins:
   - search
-  - git-revision-date
+  - git-revision-date-localized:
+      enable_creation_date: true

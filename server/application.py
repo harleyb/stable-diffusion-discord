@@ -10,7 +10,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from omegaconf import OmegaConf
 from dependency_injector.wiring import inject, Provide
-from ldm.dream.args import Args
+from ldm.invoke.args import Args
 from server import views
 from server.containers import Container
 from server.services import GeneratorService, SignalService
@@ -119,7 +119,7 @@ def main():
   #     "height": height,
   #     "sampler_name": opt.sampler_name,
   #     "weights": weights,
-  #     "full_precision": opt.full_precision,
+  #     "precision": opt.precision,
   #     "config": config,
   #     "grid": opt.grid,
   #     "latent_diffusion_weights": opt.laion400m,

@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='stable-diffusion',
-    version='1.15.0-dev',
-    description='',
+    name='invoke-ai',
+    version='2.1.3',
+    description='InvokeAI text to image generation toolkit',
     packages=find_packages(),
     install_requires=[
         'torch',
@@ -11,3 +11,4 @@ setup(
         'tqdm',
     ],
 )
+
