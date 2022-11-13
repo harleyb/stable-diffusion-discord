@@ -9,7 +9,6 @@ import os
 import sys
 import time
 import copy
-from omegaconf import OmegaConf
 import numpy as np
 import random
 import logging
@@ -59,6 +58,13 @@ SAMPLER_EMOJI = {
     'plms': '8️⃣',
 }
 
+PRECISION_CHOICES = [
+    'auto',
+    'float32',
+    'autocast',
+    'float16',
+]
+
 
 class ResourceError(Exception):
     pass
@@ -67,6 +73,7 @@ class ResourceError(Exception):
 class DiscordBot(object):
     def __init__(self):
         self.argvopt = self.get_argv_parser().parse_args()
+        self.gfpgan, self.codeformer, self.esrgan = None, None, None
         self.t2i = self.init_model()
         self.prompt_parser = self.get_prompt_parser()
         self.opt_history = list()
@@ -321,23 +328,50 @@ Flags available:
             help="device to run stable diffusion on. defaults to cuda `torch.cuda.current_device()` if available")
         parser.add_argument(
             '--model',
-            default='stable-diffusion-1.4',
-            help='Indicates which diffusion model to load. (currently "stable-diffusion-1.4" (default) or "laion400m")',
+            help='Indicates which diffusion model to load. (defaults to "default" stanza in configs/models.yaml)',
         )
         parser.add_argument(
             '--config',
-            default='configs/models.yaml',
+            default='./configs/models.yaml',
             help='Path to configuration file for alternate models.',
         )
-        # GFPGAN related args
         parser.add_argument(
-            '--gfpgan_bg_upsampler',
+            '--precision',
+            dest='precision',
             type=str,
-            default='realesrgan',
-            help='Background upsampler. Default: realesrgan. Options: realesrgan, none.',
+            choices=PRECISION_CHOICES,
+            metavar='PRECISION',
+            help=f'Set model precision. Defaults to auto selected based on device.',
+            default='auto',
         )
         parser.add_argument(
-            '--gfpgan_bg_tile',
+            '--max_loaded_models',
+            dest='max_loaded_models',
+            type=int,
+            default=2,
+            help='Maximum number of models to keep in memory for fast switching, including the one in GPU',
+        )
+        parser.add_argument(
+            '--free_gpu_mem',
+            dest='free_gpu_mem',
+            action='store_true',
+            help='Force free gpu memory before final decoding',
+        )
+        # GFPGAN related args
+        # parser.add_argument(
+        #     '--gfpgan_bg_upsampler',
+        #     type=str,
+        #     default='realesrgan',
+        #     help='Background upsampler. Default: realesrgan. Options: realesrgan, none.',
+        # )
+        # parser.add_argument(
+        #     '--gfpgan_bg_tile',
+        #     type=int,
+        #     default=400,
+        #     help='Tile size for background sampler, 0 for no tile during testing. Default: 400.',
+        # )
+        parser.add_argument(
+            '--esrgan_bg_tile',
             type=int,
             default=400,
             help='Tile size for background sampler, 0 for no tile during testing. Default: 400.',
@@ -345,15 +379,15 @@ Flags available:
         parser.add_argument(
             '--gfpgan_model_path',
             type=str,
-            default='experiments/pretrained_models/GFPGANv1.3.pth',
-            help='indicates the path to the GFPGAN model, relative to --gfpgan_dir.',
+            default='./models/gfpgan/GFPGANv1.4.pth',
+            help='indicates the path to the GFPGAN model',
         )
-        parser.add_argument(
-            '--gfpgan_dir',
-            type=str,
-            default='./src/gfpgan',
-            help='indicates the directory containing the GFPGAN code.',
-        )
+        # parser.add_argument(
+        #     '--gfpgan_dir',
+        #     type=str,
+        #     default='./src/gfpgan',
+        #     help='indicates the directory containing the GFPGAN code.',
+        # )
         return parser
 
     def get_prompt_parser(self):
@@ -427,15 +461,15 @@ Flags available:
     def init_model(self):
         ''' Initialize command-line parsers and the diffusion model '''
 
-        try:
-            models = OmegaConf.load(self.argvopt.config)
-            width = models[self.argvopt.model].width
-            height = models[self.argvopt.model].height
-            config = models[self.argvopt.model].config
-            weights = models[self.argvopt.model].weights
-        except (FileNotFoundError, IOError, KeyError) as e:
-            print(f'{e}. Aborting.')
-            sys.exit(-1)
+        # try:
+        #     models = OmegaConf.load(self.argvopt.config)
+        #     width = models[self.argvopt.model].width
+        #     height = models[self.argvopt.model].height
+        #     config = models[self.argvopt.model].config
+        #     weights = models[self.argvopt.model].weights
+        # except (FileNotFoundError, IOError, KeyError) as e:
+        #     print(f'{e}. Aborting.')
+        #     sys.exit(-1)
 
         logger.info("* Initializing, be patient...")
         sys.path.append('.')
@@ -446,16 +480,39 @@ Flags available:
         import transformers
         transformers.logging.set_verbosity_error()
 
-        # creating a simple text2image object with a handful of
-        # defaults passed on the command line.
-        # additional parameters will be added (or overriden) during
-        # the user input loop
-        t2i = Generate(sampler_name=self.argvopt.sampler_name,
-                       weights=weights,
-                       full_precision=self.argvopt.full_precision,
-                       config=config,
-                       embedding_path=self.argvopt.embedding_path,
-                       )
+        self.load_face_restoration()
+
+        # # creating a simple text2image object with a handful of
+        # # defaults passed on the command line.
+        # # additional parameters will be added (or overriden) during
+        # # the user input loop
+        # t2i = Generate(sampler_name=self.argvopt.sampler_name,
+        #                weights=weights,
+        #                full_precision=self.argvopt.full_precision,
+        #                config=config,
+        #                embedding_path=self.argvopt.embedding_path,
+        #                )
+        try:
+            t2i = Generate(
+                conf=self.argvopt.conf,
+                model=self.argvopt.model,
+                sampler_name=self.argvopt.sampler_name,
+                embedding_path=self.argvopt.embedding_path,
+                full_precision=self.argvopt.full_precision,
+                precision=self.argvopt.precision,
+                gfpgan=self.gfpgan,
+                codeformer=self.codeformer,
+                esrgan=self.esrgan,
+                free_gpu_mem=self.argvopt.free_gpu_mem,
+                safety_checker=False,
+                max_loaded_models=self.argvopt.max_loaded_models,
+            )
+        except FileNotFoundError:
+            print('** You appear to be missing configs/models.yaml')
+            raise
+        except (IOError, KeyError) as e:
+            print(f'{e}. Aborting.')
+            raise
 
         # make sure the output directory exists
         if not os.path.exists(self.argvopt.outdir):
@@ -470,6 +527,25 @@ Flags available:
         logger.info("Initialization done!")
 
         return t2i
+
+    def load_face_restoration(self):
+        try:
+            if self.argvopt.restore or self.argvopt.esrgan:
+                from ldm.invoke.restoration import Restoration
+                restoration = Restoration()
+                if self.argvopt.restore:
+                    self.gfpgan, self.codeformer = restoration.load_face_restore_models(self.argvopt.gfpgan_model_path)
+                else:
+                    print('>> Face restoration disabled')
+                if self.argvopt.esrgan:
+                    self.esrgan = restoration.load_esrgan(self.argvopt.esrgan_bg_tile)
+                else:
+                    print('>> Upscaling disabled')
+            else:
+                print('>> Face restoration and upscaling disabled')
+        except (ModuleNotFoundError, ImportError):
+            # print(traceback.format_exc(), file=sys.stderr)
+            print('>> You may need to install the ESRGAN and/or GFPGAN modules')
 
     def parse_command(self, command):
         # before splitting, escape single quotes so as not to mess
