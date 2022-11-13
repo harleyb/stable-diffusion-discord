@@ -142,18 +142,24 @@ class DiscordBot(object):
                 cmd = list()
                 opt.sampler_name = 'k_dpm_2_a'
                 opt.steps = 128
-                opt.gfpgan_strength = 0.8
+                opt.facetool_strength = 0.8
                 opt.upscale = [4, 0.7]
                 for y in [32, 48, 64]:
                     opt.steps = y
                     cmd.append(self.normalize_prompt(opt))
                 msg = 'generating (~1min) a spread of Style 3️⃣ detailed'
-            elif inmoji == '🤓' or inmoji == '😎':  # CFG spread
+            elif inmoji == '🤓':  # CFG spread
                 cmd = list()
                 for y in [2, 4.75, 12, 18]:
                     opt.cfg_scale = y
                     cmd.append(self.normalize_prompt(opt))
                 msg = 'generating a strictness spread of'
+            elif inmoji == '😎':  # perlin spread
+                cmd = list()
+                for y in [0.2, 0.4, 0.6, 0.8, 1.0]:
+                    opt.perlin = y
+                    cmd.append(self.normalize_prompt(opt))
+                msg = 'generating a variation spread of'
             elif inmoji == '😱' or inmoji == '😨':  # get a k_euler_a spread
                 cmd = list()
                 opt.sampler_name = 'k_euler_a'
@@ -271,7 +277,8 @@ Use a `$` or a `%` instead of the `!` to generate portrait or landscape aspect r
 Use an emoji react to explore this prompt further! These will use the same seed value, which tends to keep the image composition similar.
 \t😍: generate a more detailed version with the same seed, style and strictness (and steps if style 2️⃣) (~1min)
 \t🤩: generate a spread of style 3️⃣ detailed images with the same seed and strictness (~1min)
-\t🤓 or 😎: generate a spread using this seed and style, with the bot varying how closely it follows the prompt
+\t🤓: generate a spread using this seed and style, with the bot varying how closely it follows the prompt
+\t😎: generate a spread using this seed and style, with variations in initial noise during generation
 \t😱 or 😨: generate a spread using this seed in style 2️⃣, with the bot varying the number of steps
 \t⭐️: add to the #hall-of-fame channel
 **Check the #general pinned messages for tips on crafting prompts!** This is the most important part!
@@ -419,7 +426,7 @@ Flags available:
         # TODO: handle url for img2img with results = t2i.img2img(**vars(opt))
         parser.add_argument(
             '-G',
-            '--gfpgan_strength',
+            '--facetool_strength',
             default=None,
             type=float,
             help='The strength at which to apply the GFPGAN model to the result. Set to <0 to disable',
@@ -455,6 +462,12 @@ Flags available:
             dest='seamless',
             action='store_true',
             help='Change the model to seamless tiling (circular) mode',
+        )
+        parser.add_argument(
+            '--perlin',
+            default=0.0,
+            type=float,
+            help='Perlin noise scale (0.0 - 1.0) - add perlin noise to the initialization instead of the usual gaussian noise.',
         )
         return parser
 
@@ -604,8 +617,8 @@ Flags available:
                 opt.steps = 16
             if opt.sampler_name is None:
                 opt.sampler_name = 'ddim'
-            if opt.gfpgan_strength is None:
-                opt.gfpgan_strength = 0
+            if opt.facetool_strength is None:
+                opt.facetool_strength = 0
             iterations = opt.iterations
             opt.iterations = 1
             callback = functools.partial(self.handle_generator_callbacks, opt=opt, discord_channel=discord_channel,
@@ -623,7 +636,7 @@ Flags available:
             logger.error("hit a problem generating", exc_info=e)
 
     def handle_generator_callbacks(self, image, seed, upscaled=False, loop=None, opt=None, discord_channel=None):
-        if (opt.upscale is not None or opt.gfpgan_strength > 0) and upscaled is False:
+        if (opt.upscale is not None or opt.facetool_strength > 0) and upscaled is False:
             return
         normalized_prompt = self.normalize_prompt(opt)
         filepath = self.write_jpg(image, seed)
@@ -672,14 +685,16 @@ Flags available:
             switches.append(f'-H{opt.height or self.t2i.height}')
         switches.append(f'-C{round(opt.cfg_scale or self.t2i.cfg_scale, 2)}')
         switches.append(f'-m{opt.sampler_name or self.t2i.sampler_name}')
-        if opt.gfpgan_strength:
-            switches.append(f'-G{opt.gfpgan_strength}')
+        if opt.facetool_strength:
+            switches.append(f'-G{opt.facetool_strength}')
         if opt.upscale:
             switches.append(f'-U {" ".join([str(u) for u in opt.upscale])}')
         if opt.seamless:
             switches.append(f'-l')
         if opt.seed:
             switches.append(f'-S{opt.seed}')
+        if opt.perlin > 0:
+            switches.append(f'--perlin {opt.perlin}')
         return ' '.join(switches)
 
 
